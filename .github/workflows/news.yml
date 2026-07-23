@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # commitar news_seen.json (dedupe entre execuções)
-  pages: write      # publicar no GitHub Pages
-  id-token: write   # autenticação do deploy-pages
+  contents: write
 
 concurrency:
   group: sp500-news
@@ -17,44 +15,21 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configurar Pages (habilita se necessario)
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Coletar noticias (24h, dedupe, impacto)
         run: node news.js
 
-      - name: Preparar site publico (so o JSON)
-        run: |
-          mkdir -p _site
-          cp news_report.json _site/news_report.json
-          printf '{"ok":true}' > _site/health.json
-
-      - name: Persistir estado (dedupe) + keepalive
+      - name: Persistir feed (keepalive p/ o cron nunca desativar)
         run: |
           LAST=$(git log -1 --format=%ct)
           NOW=$(date +%s)
           if [ $((NOW - LAST)) -gt 2160000 ]; then date > .heartbeat; fi
-          git add news_seen.json news_report.json .heartbeat 2>/dev/null || true
+          git add -A
           if ! git diff --cached --quiet; then
             git config user.name "sp500-news-bot"
             git config user.email "bot@users.noreply.github.com"
             git commit -m "news: atualiza feed"
             git push
           fi
-
-      - name: Upload artefato do Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Publicar no GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
