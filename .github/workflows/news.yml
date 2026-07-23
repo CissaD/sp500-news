@@ -23,6 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configurar Pages (habilita se necessario)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Coletar noticias (24h, dedupe, impacto)
         run: node news.js
 
